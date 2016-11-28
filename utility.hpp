@@ -1,3 +1,7 @@
+#ifndef _UTILITY_HPP
+#define _UTILITY_HPP
+
+#define CPU_ONLY
 #include <Eigen/Dense>
 #include <igl/sort.h>
 #include <igl/find.h>
@@ -13,76 +17,13 @@
 #include <cmath>
 #include <cstdlib>
 
+#include "eigenplus.h"
+#include "caffeplus.h"
+#include "nms.h"
+
 using namespace std;
 using namespace Eigen;
 using namespace cv;
-
-
-VectorXi _find(MatrixXd A, MatrixXd B){
-	// find index where A > B
-	Matrix<bool, Dynamic, Dynamic> C = A.array() > B.array();
-	VectorXi I = VectorXi::LinSpaced(C.size(), 0, C.size() - 1);
-	I.conservativeResize(std::stable_partition(
-		I.data(), I.data() + I.size(), [&C](int i){return C(i); }) - I.data());
-	return I;
-}
-
-VectorXi _find(MatrixXd A, double b){ 
-	MatrixXd B = MatrixXd(A.rows(), A.cols());
-	B.fill(b);
-	Matrix<bool, Dynamic, Dynamic> C = A.array() > B.array();
-	VectorXi I = VectorXi::LinSpaced(C.size(), 0, C.size() - 1);
-	I.conservativeResize(std::stable_partition(
-		I.data(), I.data() + I.size(), [&C](int i){return C(i); }) - I.data());
-	return I;
-}
-
-void _find(vector<double>& A, double b, vector<int>& C)
-{
-	for (int i = 0; i < A.size(); i++){ 
-		if (A.at(i) > b){ 
-			C.push_back(i);
-		}
-	}
-}
-
-void _fix(MatrixXd &M){
-	for (int i = 0; i < M.cols(); i++){ 
-		for (int j = 0; j < M.rows(); j++){ 
-			
-			int temp = (int)M(j, i);
-			
-			if (temp > M(j, i)) temp--;
-			else if (M(j, i) - temp > 0.9) temp++;
-			
-			M(j, i) = (double)temp;
-		}
-	}
-}
-
-MatrixXd subOneRow(MatrixXd M, int index){
-	assert(M.rows() > index);
-	MatrixXd out(M.rows() - 1, M.cols());
-	for (int i = 0, j = 0; i < M.rows(), j < out.rows(); ){
-		if (i != index){
-			out.row(j) = M.row(i);
-			i++;
-			j++;
-		}
-		else
-			i++;
-	}
-	return out;
-}
-
-MatrixXd subOneRowRerange(MatrixXd &M, vector<int> &I)
-{
-	MatrixXd out(M.rows() - 1, M.cols());
-	for (int i = 0; i < I.size() - 1; i++){
-		out.row(i) = M.row(I[i]);
-	}
-	return out;
-}
 
 void bbreg(MatrixXd &boundingbox, MatrixXd &reg)
 {
@@ -92,7 +33,7 @@ void bbreg(MatrixXd &boundingbox, MatrixXd &reg)
 		cout << "reg.rows == 1" << endl;
 	}
 	int numOfBB = boundingbox.rows();
-	Matrix<double, Dynamic, 1> w = boundingbox.col(2).cast<double>() - boundingbox.col(0).cast<double>() + MatrixXd::Ones(numOfBB, 1);
+    Matrix<double, Dynamic, 1> w = boundingbox.col(2).cast<double>() - boundingbox.col(0).cast<double>() + MatrixXd::Ones(numOfBB, 1);
 	Matrix<double, Dynamic, 1> h = boundingbox.col(3).cast<double>() - boundingbox.col(1).cast<double>() + MatrixXd::Ones(numOfBB, 1);
 	boundingbox.col(0) += w.cwiseProduct(reg.col(0));
 	boundingbox.col(1) += h.cwiseProduct(reg.col(1));
@@ -181,89 +122,6 @@ void rerec(MatrixXd &boundingbox)
 	boundingbox.middleCols(2, 2) = boundingbox.middleCols(0, 2) + ll;
 }
 
-void nms(MatrixXd &boundingbox, float threshold, string type, vector<int>& pick)
-{
-    assert(boundingbox.cols() == 5 || boundingbox.cols() == 9);
-	if (boundingbox.rows() < 1) return;
-
-	MatrixXd x1 = MatrixXd(boundingbox.col(0));
-	MatrixXd y1 = MatrixXd(boundingbox.col(1));
-	MatrixXd x2 = MatrixXd(boundingbox.col(2));
-	MatrixXd y2 = MatrixXd(boundingbox.col(3));
-	MatrixXd s = MatrixXd(boundingbox.col(4));
-	MatrixXd one_vector = MatrixXd::Ones(x1.rows(), 1);
-	MatrixXd area = (x2 - x1 + one_vector).cwiseProduct(y2 - y1 + one_vector);
-	MatrixXd _vals;
-	MatrixXi _I;
-	igl::sort(s, 1, true, _vals, _I);
-	vector<int> I(_I.data(), _I.data() + _I.rows()*_I.cols());
-	while (true){
-		cout << "I:" << endl;
-		for (auto i : I) cout << i << ", ";
-		cout << endl;
-
-		MatrixXd x1_powerful = MatrixXd(I.size() - 1, 1);
-		x1_powerful.fill(x1(I.back()));
-		MatrixXd xx1 = x1_powerful.cwiseMax(subOneRowRerange(x1, I));
-
-		MatrixXd y1_powerful = MatrixXd(I.size() - 1, 1);
-		y1_powerful.fill(y1(I.back()));
-		MatrixXd yy1 = y1_powerful.cwiseMax(subOneRowRerange(y1, I));
-
-		MatrixXd x2_powerful = MatrixXd(I.size() - 1, 1);
-		x2_powerful.fill(x2(I.back()));
-		MatrixXd xx2 = x2_powerful.cwiseMin(subOneRowRerange(x2, I));
-
-		MatrixXd y2_powerful = MatrixXd(I.size() - 1, 1);
-		y2_powerful.fill(y2(I.back()));
-		MatrixXd yy2 = y2_powerful.cwiseMin(subOneRowRerange(y2, I)); 
-	
-		auto w = MatrixXd::Zero(I.size() - 1, 1).cwiseMax(xx2-xx1+MatrixXd::Ones(I.size()-1,1));
-		auto h = MatrixXd::Zero(I.size() - 1, 1).cwiseMax(yy2-yy1+MatrixXd::Ones(I.size()-1,1));
-		auto inter = w.cwiseProduct(h);
-
-		MatrixXd o;
-		MatrixXd area_powerful = MatrixXd(I.size() - 1, 1);
-		area_powerful.fill(area(I.back()));
-		if (type == "Min"){
-			o = inter.cwiseQuotient(area_powerful.cwiseMin(subOneRowRerange(area, I)));
-		}
-		else{
-			MatrixXd tmp = area_powerful + subOneRowRerange(area, I) - inter;
-			o = inter.cwiseQuotient(tmp);
-		}
-			
-		pick.push_back(I.back());
-		
-		// I = I[np.where( o <= threshold )]
-		vector<int> newI;
-		for (int i = 0; i < I.size(); i++){ 
-			if (o(I[i]) <= threshold){ 
-				newI.push_back(I[i]);
-			}
-		}
-		if (newI.size() == 0)
-			break;
-		else{
-			I.resize(newI.size());
-			I = newI;
-		}
-		/*
-		vector<double> o_list(o.data(), o.data() + o.rows()*o.cols());
-		auto i = I.begin();
-		auto j = o_list.begin();
-		for (; i != I.end(), j != o_list.end(); i++, j++){
-			if (*j > threshold){
-				I.erase(i);
-			}
-		}
-		*/
-	}
-	cout << "pick:\n";
-	for (auto i : pick) cout << i << endl;
-	cout << endl;
-}
-
 void generateBoundingBox(MatrixXd &map, vector<MatrixXd> &reg, double scale, double threshold, MatrixXd &boxes)
 {
 	assert(reg.size() == 4);
@@ -304,7 +162,8 @@ void generateBoundingBox(MatrixXd &map, vector<MatrixXd> &reg, double scale, dou
 
 	MatrixXd bb1 = (stride * boundingbox + MatrixXd::Ones(boundingbox.rows(), boundingbox.cols())) / scale;
 	MatrixXd bb2 = (stride * boundingbox + cellsize_m) / scale;
-	
+    cout << "bb1.size: " << bb1.rows() << "*" << bb1.cols() << endl;
+
 	_fix(bb1);
 	_fix(bb2);
 
@@ -325,17 +184,6 @@ void generateBoundingBox(MatrixXd &map, vector<MatrixXd> &reg, double scale, dou
 	//cout << "bb2:\n" << bb2 << endl;
 }
 
-void _select(MatrixXd &src, MatrixXd &dst, const vector<int> &pick)
-{
-    MatrixXd _src = src.replicate(1,1);
-    int new_height = pick.size();
-    int new_width = src.cols();
-    dst.resize(new_height, new_width);
-    for(int i=0; i < pick.size(); i++){
-        dst.row(i) = _src.row(pick[i]);
-    }
-}
-
 void drawBoxes(Mat &im, MatrixXd &boxes)
 {
 	for (int i = 0; i < boxes.rows(); i++){ 
@@ -343,7 +191,6 @@ void drawBoxes(Mat &im, MatrixXd &boxes)
 			(int)(boxes(i,3) - boxes(i,1))), Scalar(0,255,0));
 	}
 }
-
 
 void _prepareData(shared_ptr<caffe::Net<float>>& net, const Mat& img)
 {
@@ -399,111 +246,6 @@ void _prepareData2(shared_ptr<caffe::Net<float>>& net, const vector<Mat>& imgs)
 	  << "Input channels are not wrapping the input layer of the network.";
 }
 
-void convertToMatrix(caffe::Blob<float>* prob, caffe::Blob<float>* conv, MatrixXd &map, vector<MatrixXd> &reg)
-{
-	int height = prob->height();
-	int width = prob->width();
-	
-	// convert to map
-    float* data = prob->mutable_cpu_data() + height * width;
-    Mat prob_mat(height, width, CV_32FC1, data);
-    cv2eigen(prob_mat, map);
-
-	//for (int i = 0; i < 20; i++) cout << "prob " << i << ": "  << *(data + i) << endl;
-		
-	// convert to reg
-    data = conv->mutable_cpu_data();
-    MatrixXd eachReg;
-    eachReg.resize(height, width);
-    for(int i=0; i < conv->channels(); i++){
-        Mat reg_mat(height, width, CV_32FC1, data);
-        cv2eigen(reg_mat, eachReg);
-        reg.push_back(eachReg);
-		//cout << "===\n";
-		//for (int j = 0; j < 20; j++) cout << i << " conv " << j << ": "  << *(data + j) << endl;
-        data += height * width;
-    }
-}
-
-void convertToVector(caffe::Blob<float>* prob, vector<double> &score)
-{
-	assert(prob->channels() == 2);
-	int num = prob->num();
-	int channels = prob->channels();
-
-	// convert to score
-    float* data = prob->mutable_cpu_data();
-	for (int i = 0; i < num; i++){ 
-		score.push_back(*data);
-		data += 2;
-	}
-}
-
-void filter(MatrixXd &total_boxes, VectorXi &pass_t, MatrixXd &score)
-{
-	MatrixXd new_boxes;
-	new_boxes.resize(pass_t.size(), 5);
-	for (int i = 0; i < pass_t.size(); i++){
-		MatrixXd tmp;
-		tmp.resize(1, 5);
-		tmp << total_boxes(pass_t(i), 0), total_boxes(pass_t(i), 1), total_boxes(pass_t(i), 2), total_boxes(pass_t(i), 3), score(pass_t(i));
-		new_boxes.row(i) = tmp;
-	}
-	total_boxes.resize(pass_t.size(), 5);
-	total_boxes << new_boxes;
-}
-
-void filter(MatrixXd &total_boxes, vector<int> &pass_t, vector<double> &score)
-{
-	MatrixXd new_boxes;
-	new_boxes.resize(pass_t.size(), 5);
-	for (int i = 0; i < pass_t.size(); i++){
-		MatrixXd tmp;
-		tmp.resize(1, 5);
-		tmp << total_boxes(pass_t.at(i), 0), total_boxes(pass_t.at(i), 1), total_boxes(pass_t.at(i), 2), total_boxes(pass_t.at(i), 3), score.at(pass_t.at(i));
-		new_boxes.row(i) = tmp;
-	}
-	total_boxes.resize(pass_t.size(), 5);
-	total_boxes << new_boxes;
-}
-
-void getMV(caffe::Blob<float>* conv, MatrixXd &mv, vector<int> &pass_t)
-{
-	int num = conv->num();
-	int channels = conv->channels();
-
-	// convert to MatrixXd
-	MatrixXd conv_m;
-    float* data = conv->mutable_cpu_data();
-    Mat conv_mat(num, channels, CV_32FC1, data);
-    cv2eigen(conv_mat, conv_m);
-	_select(conv_m, mv, pass_t);
-}
-
-
-void debug_blob(caffe::Blob<float>* blob){
-	int num = blob->num();
-	int channels = blob->channels();
-	int height = 10; // blob->height();
-	int width = 10; // blob->width();
-
-	float* data = blob->mutable_cpu_data();
-	for (int i = 0; i < num; i++){
-		cout << "\n\n\n#######" << endl;
-		cout << "#  " << i << "  #";
-		cout << "#######" << endl;
-		for (int j = 0; j < channels; j++){
-			cout << "*****************channels " << j << " *****************" << endl;
-			for (int k = 0; k < height; k++){
-				for (int m = 0; m < width; m++){
-					cout << *(data + m + k*width + j*width*height + i*channels*width*height) << " ";
-				}
-				cout << endl;
-			}
-		}
-	}
-}
-
 void _stage1(Mat &img_mat, int minsize, shared_ptr<caffe::Net<float>> PNet,
 	vector<float> &threshold, bool fastresize, float factor, MatrixXd &total_boxes)
 {
@@ -548,8 +290,9 @@ void _stage1(Mat &img_mat, int minsize, shared_ptr<caffe::Net<float>> PNet,
         transpose(im_data, im_t);
         _prepareData(PNet, im_t);
 
-        PNet->Forward();
-		
+        //PNet->Forward();
+        PNet->ForwardPrefilled();
+
 		caffe::Blob<float>* conv4_2 = PNet->output_blobs()[0]; // 1*4*height*width
 		caffe::Blob<float>* prob1 = PNet->output_blobs()[1]; // 1*2*height*width
 
@@ -632,8 +375,9 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
 	}
 
 	_prepareData2(RNet, imgs);
-	RNet->Forward();
-	caffe::Blob<float>* conv5_2 = RNet->output_blobs()[0];
+    //RNet->Forward();
+    RNet->ForwardPrefilled();
+    caffe::Blob<float>* conv5_2 = RNet->output_blobs()[0];
 	caffe::Blob<float>* prob1 = RNet->output_blobs()[1]; 
 
 	//use prob1 to filter total_boxes 
@@ -653,7 +397,6 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
         if (pick.size() > 0){
 			_select(total_boxes, total_boxes, pick);
         }
-		cout << "[6]:" << total_boxes.rows() << endl;
 		//bbreg(total_boxes, mv);
 		cout << "[7]:" << total_boxes.rows() << endl;
 		rerec(total_boxes);
@@ -682,8 +425,9 @@ void _stage3(Mat &img_mat, shared_ptr<caffe::Net<float>> ONet,
 		imgs.push_back(tmp_float);
 	}
 	_prepareData2(ONet, imgs);
-	ONet->Forward();
-	caffe::Blob<float>* conv6_2 = ONet->output_blobs()[0];
+    //ONet->Forward();
+    ONet->ForwardPrefilled();
+    caffe::Blob<float>* conv6_2 = ONet->output_blobs()[0];
 	caffe::Blob<float>* prob1 = ONet->output_blobs()[1]; 
 	caffe::Blob<float>* conv6_3 = ONet->output_blobs()[2];
 
@@ -727,3 +471,5 @@ void detect_face(Mat &img_mat, int minsize,
 	cout << "total_boxes num:" << total_boxes.rows() << endl;
 	drawBoxes(img_mat, total_boxes);
 }
+
+#endif

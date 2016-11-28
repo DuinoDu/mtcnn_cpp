@@ -1,12 +1,8 @@
-//#define CATCH_CONFIG_MAIN
-//#include "catch.hpp"
-
+#define CPU_ONLY
 #include <caffe/caffe.hpp>
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#endif  // USE_OPENCV
 #include <algorithm>
 #include <iosfwd>
 #include <memory>
@@ -19,6 +15,7 @@
 #include "utility.hpp"
 using namespace cv;
 
+#ifndef IN_TEST
 int main(int args, char* argv[])
 {
 	//string imglistfile = "H:/project/vs/caffe/windows/mtcnn/mtcnn/imglist.txt";
@@ -72,3 +69,11 @@ int main(int args, char* argv[])
 	}
 	imgfile.close();
 }
+#else
+#include <gtest/gtest.h>
+int main(int args, char *argv[])
+{
+    testing::InitGoogleTest(&args, argv);
+    return RUN_ALL_TESTS();
+}
+#endif
