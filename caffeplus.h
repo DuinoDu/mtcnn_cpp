@@ -38,11 +38,4 @@ void printVector(T &vec, const string &name)
     cout << endl;
 }
 
-template <typename T>
-void printVec(T &vec, const string &name){
-    cout << endl << name << endl;
-    for(auto i : vec) cout << i << " ";
-    cout << endl;
-}
-
 #endif // CAFFEPLUS_H

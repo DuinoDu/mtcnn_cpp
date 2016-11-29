@@ -18,8 +18,7 @@ using namespace cv;
 #ifndef IN_TEST
 int main(int args, char* argv[])
 {
-	string imglistfile(argv[1]);
-    string caffe_model_path = "/home/duino/project/iactive/mtcnn/mtcnn/model";
+    string mtcnn_path(argv[1]);
 
     vector<float> threshold;
 	threshold.push_back(0.6);
@@ -38,16 +37,16 @@ int main(int args, char* argv[])
 	shared_ptr<caffe::Net<float>> RNet;
 	shared_ptr<caffe::Net<float>> ONet;
 	
-	PNet.reset(new caffe::Net<float>(caffe_model_path + "/det1.prototxt", caffe::TEST));
-	PNet->CopyTrainedLayersFrom(caffe_model_path + "/det1.caffemodel");
-	RNet.reset(new caffe::Net<float>(caffe_model_path + "/det2.prototxt", caffe::TEST));
-	RNet->CopyTrainedLayersFrom(caffe_model_path + "/det2.caffemodel");
-	ONet.reset(new caffe::Net<float>(caffe_model_path + "/det3.prototxt", caffe::TEST));
-	ONet->CopyTrainedLayersFrom(caffe_model_path + "/det3.caffemodel");
+    PNet.reset(new caffe::Net<float>(mtcnn_path + "/model/" + "det1.prototxt", caffe::TEST));
+    PNet->CopyTrainedLayersFrom(mtcnn_path + "/model/" + "det1.caffemodel");
+    RNet.reset(new caffe::Net<float>(mtcnn_path + "/model/" + "det2.prototxt", caffe::TEST));
+    RNet->CopyTrainedLayersFrom(mtcnn_path + "/model/" + "det2.caffemodel");
+    ONet.reset(new caffe::Net<float>(mtcnn_path + "/model/" + "det3.prototxt", caffe::TEST));
+    ONet->CopyTrainedLayersFrom(mtcnn_path + "/model/" + "det3.caffemodel");
 
 	ifstream imgfile;
 	string imgpath;
-	imgfile.open(imglistfile);
+    imgfile.open(mtcnn_path + "/file.txt");
 	if (imgfile.is_open()){ 
 		while (!imgfile.eof()){
 			imgfile >> imgpath;
