@@ -14,7 +14,7 @@ It a cpp version of [mtcnn](https://github.com/kpzhang93/MTCNN_face_detection_al
 ### Compile and run
 1. 
     ```
-    git clone https://github.com/DuinoDu/mtcnn && cd mtcnn
+    git clone https://github.com/DuinoDu/mtcnnc_cpp && cd mtcnn_cpp
     qtcreator mtcnn.pro
     ```
 
