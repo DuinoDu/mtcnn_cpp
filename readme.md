@@ -11,14 +11,13 @@ It a cpp version of [mtcnn](https://github.com/kpzhang93/MTCNN_face_detection_al
 5. qmake
 6. gtest(optional) 
 
-### Tell mtcnn where pycaffe is
-
 ### Compile and run
 1. 
-```
-git clone https://github.com/DuinoDu/mtcnn && cd mtcnn
-qtcreator mtcnn.pro
-```
+    ```
+    git clone https://github.com/DuinoDu/mtcnn && cd mtcnn
+    qtcreator mtcnn.pro
+    ```
+
 2. Edit mtcnn.pro and set correct lib path.
 
 3. Set run line arguments in **Projects** tab, such as */home/duino/project/iactive/mtcnn/mtcnn*. It should contain test images.
