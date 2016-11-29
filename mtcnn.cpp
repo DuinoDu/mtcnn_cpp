@@ -46,11 +46,11 @@ int main(int args, char* argv[])
 
 	ifstream imgfile;
 	string imgpath;
-    imgfile.open(mtcnn_path + "/file.txt");
+    imgfile.open(mtcnn_path + "/imglist.txt");
 	if (imgfile.is_open()){ 
 		while (!imgfile.eof()){
-			imgfile >> imgpath;
-			cout << imgpath << endl;
+            imgfile >> imgpath;
+            cout << imgpath << endl;
 
 			Mat img = imread(imgpath);
 			cvtColor(img, img, CV_BGR2RGB);
