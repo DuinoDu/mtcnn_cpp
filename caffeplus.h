@@ -30,4 +30,19 @@ void debug_blob(caffe::Blob<float>* blob);
 
 void printMatrix(const MatrixXd &M, const string &name);
 
+template <typename T>
+void printVector(T &vec, const string &name)
+{
+    cout << endl << name << endl << "size: " << vec.size() << endl;
+    for(auto i : vec) cout << i << " ";
+    cout << endl;
+}
+
+template <typename T>
+void printVec(T &vec, const string &name){
+    cout << endl << name << endl;
+    for(auto i : vec) cout << i << " ";
+    cout << endl;
+}
+
 #endif // CAFFEPLUS_H

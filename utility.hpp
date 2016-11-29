@@ -29,7 +29,12 @@ void bbreg(MatrixXd &boundingbox, MatrixXd &reg)
 {
 	assert(boundingbox.cols() == 5);
 	assert(reg.cols() == 4);
-	if (reg.rows() == 1){
+    assert(boundingbox.rows() == reg.rows());
+
+    cout << "bb.rows:" << boundingbox.rows() << endl;
+    cout << "reg.rows:" << reg.rows() << endl;
+
+    if (reg.rows() == 1){
 		cout << "reg.rows == 1" << endl;
 	}
 	int numOfBB = boundingbox.rows();
@@ -162,7 +167,6 @@ void generateBoundingBox(MatrixXd &map, vector<MatrixXd> &reg, double scale, dou
 
 	MatrixXd bb1 = (stride * boundingbox + MatrixXd::Ones(boundingbox.rows(), boundingbox.cols())) / scale;
 	MatrixXd bb2 = (stride * boundingbox + cellsize_m) / scale;
-    cout << "bb1.size: " << bb1.rows() << "*" << bb1.cols() << endl;
 
 	_fix(bb1);
 	_fix(bb2);
@@ -187,8 +191,8 @@ void generateBoundingBox(MatrixXd &map, vector<MatrixXd> &reg, double scale, dou
 void drawBoxes(Mat &im, MatrixXd &boxes)
 {
 	for (int i = 0; i < boxes.rows(); i++){ 
-		rectangle(im, Rect((int)boxes(i,0), (int)boxes(i,1), (int)(boxes(i,2)-boxes(i,0)), 
-			(int)(boxes(i,3) - boxes(i,1))), Scalar(0,255,0));
+        rectangle(im, Point((int)boxes(i,0), (int)boxes(i,1)), Point((int)boxes(i,2),
+            (int)boxes(i,3)), Scalar(0,255,0));
 	}
 }
 
@@ -228,6 +232,11 @@ void _prepareData2(shared_ptr<caffe::Net<float>>& net, const vector<Mat>& imgs)
 	caffe::Blob<float>* input_layer = net->input_blobs()[0];
 	input_layer->Reshape(numbox, 3, height, width);
 
+    // 1.5 transpose imgs
+    for (int i = 0; i < numbox; i++){
+
+    }
+
 	// 2. link input data and put into img data
 	vector<vector<Mat>> input_all_imgs;
 	float* input_data = input_layer->mutable_cpu_data();
@@ -265,10 +274,6 @@ void _stage1(Mat &img_mat, int minsize, shared_ptr<caffe::Net<float>> PNet,
 		factor_count++;
 	}
 
-	cout << "scales: ";
-	for (auto i : scales) cout << i << " ";
-	cout << endl;
-
 	for (auto scale : scales){
 		int hs = (int)std::ceil(h*scale);
 		int ws = (int)std::ceil(w*scale);
@@ -300,8 +305,8 @@ void _stage1(Mat &img_mat, int minsize, shared_ptr<caffe::Net<float>> PNet,
 		//cout << "PNet conv4-2 height:" << conv4_2->height() << endl;
 
 		// debug prob1
-		//debug_blob(prob1);
-		//debug_blob(conv4_2);
+        //debug_blob(prob1);
+        //debug_blob(conv4_2);
 
 		MatrixXd map; 
 		vector<MatrixXd> reg;
@@ -309,36 +314,28 @@ void _stage1(Mat &img_mat, int minsize, shared_ptr<caffe::Net<float>> PNet,
 		MatrixXd boxes;
 		generateBoundingBox(map, reg, scale, threshold[0], boxes);
 
-		cout << "generateBB:" << endl;
-		cout << boxes.rows() << "*" << boxes.cols() << endl;
-		cout << boxes << endl;
-        
 		if (boxes.rows() > 0){
             vector<int> pick;
             nms(boxes, 0.5, "Union", pick);
             if (pick.size() > 0){
                 _select(boxes, boxes, pick);
             }
-
-			cout << "pick" << endl;
-			for (auto i : pick) cout << i << " ";
-			cout << endl;
         }
-		MatrixXd t(total_boxes.rows() + boxes.rows(), boxes.cols());
+
+        MatrixXd t(total_boxes.rows() + boxes.rows(), boxes.cols());
 		t << total_boxes,
 			boxes;
 		total_boxes.resize(t.rows(), t.cols());
 		total_boxes << t;
-		
-		cout << "total_boxes:\n";
-		cout << total_boxes << endl;
-		break;
 	}
 }
 
 void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet, 
 	vector<float> &threshold, MatrixXd &total_boxes)
 {
+    Mat im_data;
+    img_mat.convertTo(im_data, CV_32FC3);
+
 	vector<int> pick;
 	nms(total_boxes, 0.7, "Union", pick);
 	_select(total_boxes, total_boxes, pick);
@@ -353,51 +350,63 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
 	MatrixXd t4 = total_boxes.middleCols(3, 1) + regh.cwiseProduct(total_boxes.middleCols(8, 1));
 	MatrixXd t5 = total_boxes.middleCols(4, 1);
 	total_boxes.resize(total_boxes.rows(), 5);
-	total_boxes << t1, t2, t3, t4, t5;
+    total_boxes << t1, t2, t3, t4, t5;
 	rerec(total_boxes);
 	cout << "[4]: " << total_boxes.rows() << endl;
 	MatrixXd pad_params;
 	pad(total_boxes, img_mat.cols, img_mat.rows, pad_params);
 	// pad_params: 0 dy, 1 edy, 2 dx, 3 edx, 4 y, 5 ey, 6 x, 7 ex, 8 tmpw, 9 tmph;
-	
 
 	vector<Mat> imgs;
 	for (int i = 0; i < total_boxes.rows(); i++){
 		Mat tmp = Mat::zeros(pad_params.col(9)[i], pad_params.col(8)[i], CV_32FC3);
-		tmp = img_mat(Range(pad_params.col(4)[i], pad_params.col(5)[i] + 1),
+        tmp = im_data(Range(pad_params.col(4)[i], pad_params.col(5)[i] + 1),
 			Range(pad_params.col(6)[i], pad_params.col(7)[i] + 1));
 		Mat tmp_resize;
 		resize(tmp, tmp_resize, Size(24, 24));
 		Mat tmp_float;
 		tmp_resize.convertTo(tmp_float, CV_32FC3);
 		tmp_float = (tmp_float - 127.5) * 0.0078125;
+        transpose(tmp_float, tmp_float);
 		imgs.push_back(tmp_float);
-	}
+    }
 
-	_prepareData2(RNet, imgs);
+    _prepareData2(RNet, imgs);
+
+    //debug_blob(RNet->input_blobs()[0]);
+
     //RNet->Forward();
     RNet->ForwardPrefilled();
     caffe::Blob<float>* conv5_2 = RNet->output_blobs()[0];
 	caffe::Blob<float>* prob1 = RNet->output_blobs()[1]; 
 
+    //debug_blob(conv5_2);
+    //debug_blob(prob1);
+
 	//use prob1 to filter total_boxes 
-	vector<double> score;
-	convertToVector(prob1, score);
-	vector<int> pass_t;
+    //score = out['prob1'][:,1]
+    vector<double> score;
+    convertToVector(prob1, score);
+    printVector(score, "score");
+
+    vector<int> pass_t;
 	_find(score, threshold[1], pass_t);
-	filter(total_boxes, pass_t, score);
-	cout << "[5]:" << total_boxes.rows() << endl;
+
+    filter(total_boxes, pass_t, score);
+    printVector(pass_t, "pass_t");
+
+    cout << "[5]:" << total_boxes.rows() << endl;
 	
 	// use conv5-2 to bbreg
 	MatrixXd mv;
 	getMV(conv5_2, mv, pass_t);  // 4*N
-	if (total_boxes.rows() > 0){ 
+    if (total_boxes.rows() > 0){
+        bbreg(total_boxes, mv);
         vector<int> pick;
         nms(total_boxes, 0.5, "Union", pick);
         if (pick.size() > 0){
 			_select(total_boxes, total_boxes, pick);
         }
-		//bbreg(total_boxes, mv);
 		cout << "[7]:" << total_boxes.rows() << endl;
 		rerec(total_boxes);
 		cout << "[8]:" << total_boxes.rows() << endl;
@@ -423,17 +432,19 @@ void _stage3(Mat &img_mat, shared_ptr<caffe::Net<float>> ONet,
 		tmp_resize.convertTo(tmp_float, CV_32FC3);
 		tmp_float = (tmp_float - 127.5) * 0.0078125;
 		imgs.push_back(tmp_float);
-	}
+    }
+
 	_prepareData2(ONet, imgs);
     //ONet->Forward();
     ONet->ForwardPrefilled();
-    caffe::Blob<float>* conv6_2 = ONet->output_blobs()[0];
-	caffe::Blob<float>* prob1 = ONet->output_blobs()[1]; 
-	caffe::Blob<float>* conv6_3 = ONet->output_blobs()[2];
+    caffe::Blob<float>* conv6_2 = ONet->output_blobs()[0]; // 4
+    caffe::Blob<float>* conv6_3 = ONet->output_blobs()[1]; // 10
+    caffe::Blob<float>* prob1 = ONet->output_blobs()[2]; // 2
 
 	//use prob1 to filter total_boxes 
 	vector<double> score;
-	convertToVector(prob1, score);
+
+    convertToVector(prob1, score);
 	vector<int> pass_t;
 	_find(score, threshold[1], pass_t);
 	filter(total_boxes, pass_t, score);
@@ -443,7 +454,7 @@ void _stage3(Mat &img_mat, shared_ptr<caffe::Net<float>> ONet,
 	MatrixXd mv;
 	getMV(conv6_2, mv, pass_t);  
 	if (total_boxes.rows() > 0){ 
-		//bbreg(total_boxes, mv);
+        bbreg(total_boxes, mv);
 		cout << "[10]:" << total_boxes.rows() << endl;
 		vector<int> pick;
         nms(total_boxes, 0.5, "Min", pick);
@@ -462,13 +473,14 @@ void detect_face(Mat &img_mat, int minsize,
 	total_boxes.resize(0, 9);
 	_stage1(img_mat, minsize, PNet, threshold, fastresize, factor, total_boxes);
 	
-	if(total_boxes.rows() > 0)
-		_stage2(img_mat, RNet, threshold, total_boxes);
+    if(total_boxes.rows() > 0)
+        _stage2(img_mat, RNet, threshold, total_boxes);
 
-	if (total_boxes.rows() > 0)
-		_stage3(img_mat, ONet, threshold, total_boxes);
+    //if (total_boxes.rows() > 0)
+    //	_stage3(img_mat, ONet, threshold, total_boxes);
 
-	cout << "total_boxes num:" << total_boxes.rows() << endl;
+    //cout << "total_boxes num:" << total_boxes.rows() << endl;
+    //cout << total_boxes << endl;
 	drawBoxes(img_mat, total_boxes);
 }
 

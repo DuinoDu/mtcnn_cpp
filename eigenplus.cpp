@@ -72,7 +72,7 @@ void npwhere_vec(vector<int> &index, const vector<double> &value, const double t
     auto i = index.begin();
     auto j = value.begin();
     for (; i != index.end(), j != value.end(); i++, j++){
-        if (*j < threshold){
+        if (*j <= threshold){
             out.push_back(*i);
         }
     }

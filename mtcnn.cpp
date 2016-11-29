@@ -18,17 +18,15 @@ using namespace cv;
 #ifndef IN_TEST
 int main(int args, char* argv[])
 {
-	//string imglistfile = "H:/project/vs/caffe/windows/mtcnn/mtcnn/imglist.txt";
-	//string imglistfile = "H:/project/vs/caffe/windows/mtcnn/mtcnn/file.txt";
 	string imglistfile(argv[1]);
+    string caffe_model_path = "/home/duino/project/iactive/mtcnn/mtcnn/model";
 
-	int minsize = 20;
-	string caffe_model_path = "H:/project/vs/caffe/windows/mtcnn/mtcnn/model";
-	vector<float> threshold;
+    vector<float> threshold;
 	threshold.push_back(0.6);
 	threshold.push_back(0.7);
 	threshold.push_back(0.7);
 	float factor = 0.709;
+    int minsize = 20;
 
 #ifdef CPU_ONLY
 	caffe::Caffe::set_mode(caffe::Caffe::CPU);

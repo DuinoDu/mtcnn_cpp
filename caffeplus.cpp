@@ -29,12 +29,16 @@ void convertToMatrix(caffe::Blob<float>* prob, caffe::Blob<float>* conv, MatrixX
 
 void convertToVector(caffe::Blob<float>* prob, vector<double> &score)
 {
+    debug_blob(prob);
+
     assert(prob->channels() == 2);
     int num = prob->num();
 
     // convert to score
     float* data = prob->mutable_cpu_data();
+    data++;
     for (int i = 0; i < num; i++){
+        cout << *data << endl;
         score.push_back(*data);
         data += 2;
     }
@@ -84,18 +88,22 @@ void getMV(caffe::Blob<float>* conv, MatrixXd &mv, vector<int> &pass_t)
 void debug_blob(caffe::Blob<float>* blob){
     int num = blob->num();
     int channels = blob->channels();
-    int height = 10; // blob->height();
-    int width = 10; // blob->width();
+    int height = blob->height();
+    int width = blob->width();
+    cout << "\n\nnum:" << num << endl;
+    cout << "channels:" << channels << endl;
+    cout << "height:" << height << endl;
+    cout << "width:" << width << endl;
 
     float* data = blob->mutable_cpu_data();
-    for (int i = 0; i < num; i++){
-        cout << "\n\n\n#######" << endl;
-        cout << "#  " << i << "  #";
-        cout << "#######" << endl;
-        for (int j = 0; j < channels; j++){
+    for (int i = 0; i < std::min(num, 3); i++){
+        cout << "##########" << endl;
+        cout << "# num " << i << "  #";
+        cout << "\n##########" << endl;
+        for (int j = 0; j < std::min(channels, 3); j++){
             cout << "*****************channels " << j << " *****************" << endl;
-            for (int k = 0; k < height; k++){
-                for (int m = 0; m < width; m++){
+            for (int k = 0; k < std::min(width, 3); k++){
+                for (int m = 0; m < std::min(height, 3); m++){
                     cout << *(data + m + k*width + j*width*height + i*channels*width*height) << " ";
                 }
                 cout << endl;
@@ -109,3 +117,4 @@ void printMatrix(const MatrixXd &M, const string &name)
     cout << name << endl << "size: " << M.rows() << "*" << M.cols() << endl;
     cout << M << endl;
 }
+

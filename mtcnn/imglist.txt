@@ -1,1 +1,1 @@
-H:/project/vs/caffe/windows/mtcnn/mtcnn/test2.jpg
+/home/duino/project/iactive/mtcnn/mtcnn/test2.jpg
