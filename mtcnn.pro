@@ -7,14 +7,15 @@ TARGET = mtcnn
 INCLUDEPATH += .
 
 # Input
-HEADERS += utility.hpp \
+HEADERS += mtcnn.h \
     nms.h \
     eigenplus.h \
     caffeplus.h
 SOURCES += \
-    mtcnn.cpp \
+    facedetection.cpp \
     #test_utility.cpp \
     #test_nms.cpp \
+    mtcnn.cpp \
     nms.cpp \
     eigenplus.cpp \
     caffeplus.cpp

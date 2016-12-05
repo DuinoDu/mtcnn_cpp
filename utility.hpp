@@ -196,6 +196,14 @@ void drawBoxes(Mat &im, MatrixXd &boxes)
 	}
 }
 
+void drawBoxes(Mat &im, vector<vector<int>> &boxes)
+{
+    for (int i = 0; i < boxes.size(); i++){
+        rectangle(im, Point(boxes[i][0], boxes[i][1]), Point(boxes[i][2],
+            boxes[i][3]), Scalar(0,255,0));
+    }
+}
+
 void _prepareData(shared_ptr<caffe::Net<float>>& net, const Mat& img)
 {
     // 1. reshape data layer
@@ -471,17 +479,71 @@ void detect_face(Mat &img_mat, int minsize,
 {
 	MatrixXd total_boxes;
 	total_boxes.resize(0, 9);
-	_stage1(img_mat, minsize, PNet, threshold, fastresize, factor, total_boxes);
+    _stage1(img_mat, minsize, PNet, threshold, fastresize, factor, total_boxes);
 	
     if(total_boxes.rows() > 0)
         _stage2(img_mat, RNet, threshold, total_boxes);
 
     //if (total_boxes.rows() > 0)
-    //	_stage3(img_mat, ONet, threshold, total_boxes);
+    //    _stage3(img_mat, ONet, threshold, total_boxes);
 
     //cout << "total_boxes num:" << total_boxes.rows() << endl;
     //cout << total_boxes << endl;
 	drawBoxes(img_mat, total_boxes);
+    boxes = total_boxes;
 }
+
+class FaceDetector
+{
+public:
+    FaceDetector(){}
+    void initialize(const string& _model_path){ model_path = _model_path; init(); }
+    void detect(Mat& _img, vector<vector<int>>& boxes){
+        Mat img;
+        _img.copyTo(img);
+        cvtColor(img, img, CV_BGR2RGB);
+
+        MatrixXd boundingboxes;
+        detect_face(img, minsize, PNet, RNet, ONet, threshold, false, factor, boundingboxes);
+        //cout << "boundingboxes:\n" << boundingboxes << endl;
+        for (int i = 0; i < boundingboxes.rows(); i++){
+            vector<int> box;
+            box.resize(4);
+            assert(boundingboxes.cols() >= 4);
+            for (int j = 0; j < 4; j++){
+                box[j] = (int)boundingboxes(i, j);
+            }
+            boxes.push_back(box);
+        }
+    }
+
+private:
+    void init(){
+        threshold.push_back(0.6);
+        threshold.push_back(0.7);
+        threshold.push_back(0.7);
+        factor = 0.709;
+        minsize = 20;
+        fastresize = false;
+#ifdef CPU_ONLY
+        caffe::Caffe::set_mode(caffe::Caffe::CPU);
+#else
+        caffe::Caffe::set_mode(caffe::Caffe::GPU);
+#endif
+        PNet.reset(new caffe::Net<float>(model_path + "/det1.prototxt", caffe::TEST));
+        PNet->CopyTrainedLayersFrom(model_path + "/det1.caffemodel");
+        RNet.reset(new caffe::Net<float>(model_path + "/det2.prototxt", caffe::TEST));
+        RNet->CopyTrainedLayersFrom(model_path + "/det2.caffemodel");
+        ONet.reset(new caffe::Net<float>(model_path + "/det3.prototxt", caffe::TEST));
+        ONet->CopyTrainedLayersFrom(model_path + "/det3.caffemodel");
+    }
+
+    string model_path;
+    vector<float> threshold;
+    float factor;
+    int minsize;
+    bool fastresize;
+    shared_ptr<caffe::Net<float>> PNet, RNet, ONet;
+};
 
 #endif
