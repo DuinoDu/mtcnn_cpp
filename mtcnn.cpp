@@ -6,8 +6,10 @@ void bbreg(MatrixXd &boundingbox, MatrixXd &reg)
 	assert(reg.cols() == 4);
     assert(boundingbox.rows() == reg.rows());
 
+#ifdef DEBUG_MTCNN
     cout << "bb.rows:" << boundingbox.rows() << endl;
     cout << "reg.rows:" << reg.rows() << endl;
+#endif
 
     if (reg.rows() == 1){
 		cout << "reg.rows == 1" << endl;
@@ -175,7 +177,7 @@ void drawBoxes(Mat &im, vector<vector<int>> &boxes)
 {
     for (int i = 0; i < boxes.size(); i++){
         rectangle(im, Point(boxes[i][0], boxes[i][1]), Point(boxes[i][2],
-            boxes[i][3]), Scalar(0,255,0), 2);
+            boxes[i][3]), Scalar(0,0,255), 1);
     }
 }
 
@@ -322,7 +324,10 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
 	vector<int> pick;
 	nms(total_boxes, 0.7, "Union", pick);
 	_select(total_boxes, total_boxes, pick);
-	cout << "[2]: " << total_boxes.rows() << endl;
+
+#ifdef DEBUG_MTCNN
+    cout << "[2]: " << total_boxes.rows() << endl;
+#endif
 
 	// using regression, convert n*9 to n*5
 	MatrixXd regh = total_boxes.middleCols(3, 1) - total_boxes.middleCols(1, 1);
@@ -335,8 +340,12 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
 	total_boxes.resize(total_boxes.rows(), 5);
     total_boxes << t1, t2, t3, t4, t5;
 	rerec(total_boxes);
-	cout << "[4]: " << total_boxes.rows() << endl;
-	MatrixXd pad_params;
+
+#ifdef DEBUG_MTCNN
+    cout << "[4]: " << total_boxes.rows() << endl;
+#endif
+
+    MatrixXd pad_params;
 	pad(total_boxes, img_mat.cols, img_mat.rows, pad_params);
 	// pad_params: 0 dy, 1 edy, 2 dx, 3 edx, 4 y, 5 ey, 6 x, 7 ex, 8 tmpw, 9 tmph;
 
@@ -370,17 +379,25 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
     //score = out['prob1'][:,1]
     vector<double> score;
     convertToVector(prob1, score);
+
+#ifdef DEBUG_MTCNN
     printVector(score, "score");
+#endif
 
     vector<int> pass_t;
 	_find(score, threshold[1], pass_t);
 
     filter(total_boxes, pass_t, score);
-    printVector(pass_t, "pass_t");
 
+#ifdef DEBUG_MTCNN
+    printVector(pass_t, "pass_t");
+#endif
+
+#ifdef DEBUG_MTCNN
     cout << "[5]:" << total_boxes.rows() << endl;
-	
-	// use conv5-2 to bbreg
+#endif
+
+    // use conv5-2 to bbreg
 	MatrixXd mv;
 	getMV(conv5_2, mv, pass_t);  // 4*N
     if (total_boxes.rows() > 0){
@@ -390,9 +407,16 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
         if (pick.size() > 0){
 			_select(total_boxes, total_boxes, pick);
         }
-		cout << "[7]:" << total_boxes.rows() << endl;
+
+#ifdef DEBUG_MTCNN
+        cout << "[7]:" << total_boxes.rows() << endl;
+#endif
+
 		rerec(total_boxes);
-		cout << "[8]:" << total_boxes.rows() << endl;
+
+#ifdef DEBUG_MTCNN
+        cout << "[8]:" << total_boxes.rows() << endl;
+#endif
 	}
 }
 
@@ -431,20 +455,29 @@ void _stage3(Mat &img_mat, shared_ptr<caffe::Net<float>> ONet,
 	vector<int> pass_t;
 	_find(score, threshold[1], pass_t);
 	filter(total_boxes, pass_t, score);
-	cout << "[9]:" << total_boxes.rows() << endl;
+
+#ifdef DEBUG_MTCNN
+    cout << "[9]:" << total_boxes.rows() << endl;
+#endif
 	
 	// use conv6-2 to bbreg
 	MatrixXd mv;
 	getMV(conv6_2, mv, pass_t);  
 	if (total_boxes.rows() > 0){ 
         bbreg(total_boxes, mv);
-		cout << "[10]:" << total_boxes.rows() << endl;
+
+#ifdef DEBUG_MTCNN
+        cout << "[10]:" << total_boxes.rows() << endl;
+#endif
 		vector<int> pick;
         nms(total_boxes, 0.5, "Min", pick);
         if (pick.size() > 0){
 			_select(total_boxes, total_boxes, pick);
         }
-		cout << "[11]:" << total_boxes.rows() << endl;
+
+#ifdef DEBUG_MTCNN
+        cout << "[11]:" << total_boxes.rows() << endl;
+#endif
 	}
 }
 
@@ -494,6 +527,8 @@ void FaceDetector::detect(Mat& _img, vector<vector<int>>& boxes)
 
 void FaceDetector::init()
 {
+    //Eigen::initParallel();
+
     threshold.push_back(0.6);
     threshold.push_back(0.7);
     threshold.push_back(0.7);

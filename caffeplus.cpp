@@ -29,7 +29,10 @@ void convertToMatrix(caffe::Blob<float>* prob, caffe::Blob<float>* conv, MatrixX
 
 void convertToVector(caffe::Blob<float>* prob, vector<double> &score)
 {
+
+#ifdef DEBUG_MTCNN
     debug_blob(prob);
+#endif
 
     assert(prob->channels() == 2);
     int num = prob->num();

@@ -62,9 +62,6 @@ void nms(MatrixXd &boundingbox, float threshold, string type, vector<int>& pick)
         vector<double> o_list(o.data(), o.data() + o.rows()*o.cols());
         npwhere_vec(I, o_list, threshold);
     }
-    //cout << "pick:\n";
-    //for (auto i : pick) cout << i << endl;
-    //cout << endl;
 }
 
 #endif // NMS_HPP

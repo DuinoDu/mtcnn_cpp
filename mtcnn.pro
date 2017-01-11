@@ -39,3 +39,6 @@ INCLUDEPATH += /usr/local/include/libigl/include
 
 # gtest
 LIBS += -lgtest -lgtest_main -lpthread
+
+QMAKE_CXXFLAGS += -pg
+LIBS += -pg
