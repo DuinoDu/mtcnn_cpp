@@ -1,4 +1,3 @@
-#define CPU_ONLY
 #include <caffe/caffe.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -13,18 +12,27 @@
 #include <fstream>
 
 #include "mtcnn.h"
+#include "headlayer.h"
 using namespace cv;
+
+//#include <iostream>
 
 #ifndef IN_TEST
 int main(int args, char* argv[])
 {
+    if(args  == 0){
+       std::cout << "Usage: ./mtcnn.exe [model path]" << std::endl;
+       return -1;
+    }
+    std::cout << argv[1] << std::endl;
     FaceDetector detector;
     detector.initialize(argv[1]);
 
     ifstream imgfile;
     string imgpath;
-    imgfile.open("/home/duino/project/iactive/mtcnn/mtcnn/imglist.txt");
-	if (imgfile.is_open()){ 
+    //imgfile.open("/home/duino/project/iactive/mtcnn/mtcnn/imglist.txt");
+    imgfile.open("H:/project/qt/mtcnn_cpp/mtcnn/imglist_win.txt");
+    if (imgfile.is_open()){
         while (!imgfile.eof()){
             imgfile >> imgpath;
             cout << imgpath << endl;

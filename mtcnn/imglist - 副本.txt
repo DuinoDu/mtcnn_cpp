@@ -1,2 +1,0 @@
-H:/project/vs/caffe/windows/mtcnn/mtcnn/test1.jpg
-H:/project/vs/caffe/windows/mtcnn/mtcnn/test2.jpg

@@ -1,7 +1,6 @@
 #ifndef _MTCNN_HPP
 #define _MTCNN_HPP
 
-#define CPU_ONLY
 #include <Eigen/Dense>
 #include <igl/sort.h>
 #include <igl/find.h>
@@ -23,7 +22,12 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace cv;
+//using namespace cv;
+using cv::Mat;
+using cv::Point;
+using cv::Scalar;
+using cv::Size;
+using cv::Range;
 
 void bbreg(MatrixXd &boundingbox, MatrixXd &reg);
 

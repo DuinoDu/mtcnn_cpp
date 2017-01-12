@@ -540,6 +540,7 @@ void FaceDetector::init()
 #else
     caffe::Caffe::set_mode(caffe::Caffe::GPU);
 #endif
+
     PNet.reset(new caffe::Net<float>(model_path + "/det1.prototxt", caffe::TEST));
     PNet->CopyTrainedLayersFrom(model_path + "/det1.caffemodel");
     RNet.reset(new caffe::Net<float>(model_path + "/det2.prototxt", caffe::TEST));

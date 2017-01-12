@@ -1,7 +1,6 @@
 #ifndef CAFFEPLUS_H
 #define CAFFEPLUS_H
 
-#define CPU_ONLY
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
@@ -14,7 +13,8 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace cv;
+//using namespace cv;
+using cv::Mat;
 
 void convertToMatrix(caffe::Blob<float>* prob, caffe::Blob<float>* conv, MatrixXd &map, vector<MatrixXd> &reg);
 

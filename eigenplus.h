@@ -5,11 +5,7 @@
 #include <igl/sort.h>
 #include <igl/find.h>
 
-//#include <iostream>
 #include <vector>
-//#include <algorithm>
-//#include <cmath>
-//#include <cstdlib>
 
 using namespace std;
 using namespace Eigen;
