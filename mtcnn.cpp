@@ -23,6 +23,38 @@ void bbreg(MatrixXd &boundingbox, MatrixXd &reg)
 	boundingbox.col(3) += h.cwiseProduct(reg.col(3));
 }
 
+void denormalize(MatrixXd &boundingbox, MatrixXd &points)
+{
+	assert(boundingbox.cols() == 5);
+	assert(points.cols() == 10);
+    assert(boundingbox.rows() == points.rows());
+
+#ifdef DEBUG_MTCNN
+    cout << "bb.rows:" << boundingbox.rows() << endl;
+    cout << "pts.rows:" << points.rows() << endl;
+#endif
+
+	MatrixXd w;	
+	w.resize(points.rows(), 1);
+
+	MatrixXd h;	
+	h.resize(points.rows(), 1);
+
+	for (int i = 0; i < points.rows(); i++){
+		w(i, 0) = boundingbox(i, 3) - boundingbox(i, 1) + 1;
+		h(i, 0) = boundingbox(i, 2) - boundingbox(i, 0) + 1; 
+	}
+
+	for (int i = 0; i < points.rows(); i++){
+		for (int j = 0; j < 5; j++){
+			points(i,j) = w(i, 0) * points(i, j) + boundingbox(i, 0) - 1;			
+		}
+		for (int k = 5; k < 10; k++){
+			points(i,k) = h(i, 0) * points(i, k) + boundingbox(i, 1) - 1;
+		}
+	}
+}
+
 void pad(MatrixXd &boundingbox, double w, double h, MatrixXd &result)
 {
 	assert(boundingbox.cols() == 5);
@@ -179,6 +211,24 @@ void drawBoxes(Mat &im, vector<vector<int>> &boxes)
         rectangle(im, Point(boxes[i][0], boxes[i][1]), Point(boxes[i][2],
             boxes[i][3]), Scalar(0,0,255), 1);
     }
+}
+
+void drawPoints(Mat &im, MatrixXd &points)
+{
+	for (int i = 0; i < points.rows(); i++){
+		for (int j = 0; j < 5; j++){
+        	circle(im, Point((int)points(i,j), (int)points(i,j+5)), 2, Scalar(0,255,0));
+		}
+	}
+}
+
+void drawPoints(Mat &im, vector<vector<int>> &points)
+{
+    for (int i = 0; i < points.size(); i++){
+		for (int j = 0; j < 5; j++){
+        	circle(im, Point((int)points[i][j], (int)points[i][j+5]), 2, Scalar(0,255,0));
+    	}
+	}
 }
 
 void _prepareData(shared_ptr<caffe::Net<float>>& net, const Mat& img)
@@ -401,27 +451,30 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
 	MatrixXd mv;
 	getMV(conv5_2, mv, pass_t);  // 4*N
     if (total_boxes.rows() > 0){
-        bbreg(total_boxes, mv);
-        vector<int> pick;
-        nms(total_boxes, 0.5, "Union", pick);
-        if (pick.size() > 0){
+		vector<int> pick;
+		nms(total_boxes, 0.7, "Union", pick);
+		if (pick.size() > 0){
 			_select(total_boxes, total_boxes, pick);
-        }
-
+			_select(mv, mv, pick);
 #ifdef DEBUG_MTCNN
-        cout << "[7]:" << total_boxes.rows() << endl;
-#endif
-
-		rerec(total_boxes);
-
+        	cout << "[6]:" << total_boxes.rows() << endl;
+#endif		
+			bbreg(total_boxes, mv);
 #ifdef DEBUG_MTCNN
-        cout << "[8]:" << total_boxes.rows() << endl;
+       		cout << "[7]:" << total_boxes.rows() << endl;
 #endif
+			rerec(total_boxes);
+#ifdef DEBUG_MTCNN
+        	cout << "[8]:" << total_boxes.rows() << endl;
+#endif
+		}
 	}
 }
 
+
+
 void _stage3(Mat &img_mat, shared_ptr<caffe::Net<float>> ONet, 
-	vector<float> &threshold, MatrixXd &total_boxes)
+	vector<float> &threshold, MatrixXd &total_boxes, MatrixXd &total_points)
 {
 	MatrixXd pad_params;
 	pad(total_boxes, img_mat.cols, img_mat.rows, pad_params);
@@ -438,31 +491,53 @@ void _stage3(Mat &img_mat, shared_ptr<caffe::Net<float>> ONet,
 		Mat tmp_float;
 		tmp_resize.convertTo(tmp_float, CV_32FC3);
 		tmp_float = (tmp_float - 127.5) * 0.0078125;
+		transpose(tmp_float, tmp_float);
 		imgs.push_back(tmp_float);
     }
 
 	_prepareData2(ONet, imgs);
     //ONet->Forward();
     ONet->ForwardPrefilled();
+	// face bounding box [y1, x1, y2, x2]
     caffe::Blob<float>* conv6_2 = ONet->output_blobs()[0]; // 4
+	// facial landmark point [x1, x2, x3, x4, x5, y1, y2, y3, y4, y5]  0 ~ 1 (normalized)
     caffe::Blob<float>* conv6_3 = ONet->output_blobs()[1]; // 10
+	// face classification [not face, face] 
     caffe::Blob<float>* prob1 = ONet->output_blobs()[2]; // 2
 
 	//use prob1 to filter total_boxes 
 	vector<double> score;
 
     convertToVector(prob1, score);
+
+#ifdef DEBUG_MTCNN
+    printVector(score, "score");
+#endif	
+
 	vector<int> pass_t;
-	_find(score, threshold[1], pass_t);
+	_find(score, threshold[2], pass_t);
 	filter(total_boxes, pass_t, score);
+
+#ifdef DEBUG_MTCNN
+    printVector(pass_t, "pass_t");
+#endif
 
 #ifdef DEBUG_MTCNN
     cout << "[9]:" << total_boxes.rows() << endl;
 #endif
 	
 	// use conv6-2 to bbreg
+	// use conv6-3 to points
+
 	MatrixXd mv;
-	getMV(conv6_2, mv, pass_t);  
+	MatrixXd mv_points;
+	getMV(conv6_2, mv, pass_t);
+	getMV(conv6_3, mv_points, pass_t);
+
+	total_points = mv_points;
+
+	denormalize(total_boxes, total_points);
+
 	if (total_boxes.rows() > 0){ 
         bbreg(total_boxes, mv);
 
@@ -470,58 +545,77 @@ void _stage3(Mat &img_mat, shared_ptr<caffe::Net<float>> ONet,
         cout << "[10]:" << total_boxes.rows() << endl;
 #endif
 		vector<int> pick;
-        nms(total_boxes, 0.5, "Min", pick);
+        nms(total_boxes, 0.7, "Min", pick);
         if (pick.size() > 0){
 			_select(total_boxes, total_boxes, pick);
+			_select(total_points, total_points, pick);
         }
 
 #ifdef DEBUG_MTCNN
         cout << "[11]:" << total_boxes.rows() << endl;
+		cout << "[12]:" << total_points.rows() << endl;
 #endif
 	}
+
 }
 
 void detect_face(Mat &img_mat, int minsize, 
 	shared_ptr<caffe::Net<float>> PNet, shared_ptr<caffe::Net<float>> RNet, shared_ptr<caffe::Net<float>> ONet,
-	vector<float> threshold, bool fastresize, float factor, MatrixXd &boxes)
+	vector<float> threshold, bool fastresize, float factor, MatrixXd &boxes, MatrixXd &points)
 {
 	MatrixXd total_boxes;
+	MatrixXd total_points;
 	total_boxes.resize(0, 9);
+	total_points.resize(0, 10);
     _stage1(img_mat, minsize, PNet, threshold, fastresize, factor, total_boxes);
 	
     if(total_boxes.rows() > 0)
         _stage2(img_mat, RNet, threshold, total_boxes);
 
-    //if (total_boxes.rows() > 0)
-    //    _stage3(img_mat, ONet, threshold, total_boxes);
+    if (total_boxes.rows() > 0)
+        _stage3(img_mat, ONet, threshold, total_boxes, total_points);
 
     //cout << "total_boxes num:" << total_boxes.rows() << endl;
     //cout << total_boxes << endl;
 	drawBoxes(img_mat, total_boxes);
     boxes = total_boxes;
+
+	drawPoints(img_mat, total_points);
+	points = total_points;
 }
 
 /*
  * FaceDetector
  */
 
-void FaceDetector::detect(Mat& _img, vector<vector<int>>& boxes)
+void FaceDetector::detect(Mat& _img, vector<vector<int>>& boxes, vector<vector<int>>& points)
 {
     Mat img;
     _img.copyTo(img);
     cvtColor(img, img, CV_BGR2RGB);
 
     MatrixXd boundingboxes;
-    detect_face(img, minsize, PNet, RNet, ONet, threshold, false, factor, boundingboxes);
+	MatrixXd facialkeypoints;
+    detect_face(img, minsize, PNet, RNet, ONet, threshold, false, factor, boundingboxes, facialkeypoints);
     //cout << "boundingboxes:\n" << boundingboxes << endl;
     for (int i = 0; i < boundingboxes.rows(); i++){
         vector<int> box;
-        box.resize(4);
-        assert(boundingboxes.cols() >= 4);
-        for (int j = 0; j < 4; j++){
+        box.resize(5);
+        assert(boundingboxes.cols() >= 5);
+        for (int j = 0; j < 5; j++){
             box[j] = (int)boundingboxes(i, j);
         }
         boxes.push_back(box);
+    }
+
+    for (int i = 0; i < facialkeypoints.rows(); i++){
+        vector<int> point;
+        point.resize(10);
+        assert(facialkeypoints.cols() >= 10);
+        for (int j = 0; j < 10; j++){
+            point[j] = (int)facialkeypoints(i, j);
+        }
+        points.push_back(point);
     }
 }
 

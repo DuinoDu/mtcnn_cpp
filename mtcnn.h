@@ -31,6 +31,8 @@ using cv::Range;
 
 void bbreg(MatrixXd &boundingbox, MatrixXd &reg);
 
+void denormalize(MatrixXd &boundingbox, MatrixXd &points);
+
 void pad(MatrixXd &boundingbox, double w, double h, MatrixXd &result);
 
 void rerec(MatrixXd &boundingbox);
@@ -40,6 +42,10 @@ void generateBoundingBox(MatrixXd &map, vector<MatrixXd> &reg, double scale, dou
 void drawBoxes(Mat &im, MatrixXd &boxes);
 
 void drawBoxes(Mat &im, vector<vector<int>> &boxes);
+
+void drawPoints(Mat &im, MatrixXd &points);
+
+void drawPoints(Mat &im, vector<vector<int>> &points);
 
 void _prepareData(shared_ptr<caffe::Net<float>>& net, const Mat& img);
 
@@ -52,18 +58,18 @@ void _stage2(Mat &img_mat, shared_ptr<caffe::Net<float>> RNet,
     vector<float> &threshold, MatrixXd &total_boxes);
 
 void _stage3(Mat &img_mat, shared_ptr<caffe::Net<float>> ONet, 
-    vector<float> &threshold, MatrixXd &total_boxes);
+    vector<float> &threshold, MatrixXd &total_boxes, MatrixXd &total_points);
 
 void detect_face(Mat &img_mat, int minsize, 
 	shared_ptr<caffe::Net<float>> PNet, shared_ptr<caffe::Net<float>> RNet, shared_ptr<caffe::Net<float>> ONet,
-    vector<float> threshold, bool fastresize, float factor, MatrixXd &boxes);
+    vector<float> threshold, bool fastresize, float factor, MatrixXd &boxes, MatrixXd &points);
 
 class FaceDetector
 {
 public:
     FaceDetector(){}
     void initialize(const string& _model_path){ model_path = _model_path; init(); }
-    void detect(Mat& _img, vector<vector<int>>& boxes);
+    void detect(Mat& _img, vector<vector<int>>& boxes, vector<vector<int>>& points);
 
 private:
     void init();
