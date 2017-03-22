@@ -12,15 +12,17 @@
 #include <fstream>
 
 #include "mtcnn.h"
-#include "headlayer.h"
+#ifndef __linux__ 
+    #include "headlayer.h"
+#endif
 using namespace cv;
 
 //#include <iostream>
 
 #ifndef IN_TEST
-int main(int args, char* argv[])
-{
-    if(args  == 0){
+int main(int argc, char* argv[])
+{    
+    if(argc  == 1){
        std::cout << "Usage: ./mtcnn.exe [model path]" << std::endl;
        return -1;
     }
@@ -29,9 +31,12 @@ int main(int args, char* argv[])
     detector.initialize(argv[1]);
 
     ifstream imgfile;
-    string imgpath;
-    //imgfile.open("/home/duino/project/iactive/mtcnn/mtcnn/imglist.txt");
+    string imgpath;    
+#ifndef __linux__     
     imgfile.open("H:/project/qt/mtcnn_cpp/mtcnn/imglist_win.txt");
+#else
+    imgfile.open("/home/duino/project/iactive/mtcnn/mtcnn/imglist.txt");
+#endif
     if (imgfile.is_open()){
         while (!imgfile.eof()){
             imgfile >> imgpath;
@@ -39,8 +44,10 @@ int main(int args, char* argv[])
 
             Mat img = imread(imgpath);
             vector<vector<int>> boxes;
-            detector.detect(img, boxes);
+            vector<vector<int>> points;
+            detector.detect(img, boxes, points);
             drawBoxes(img, boxes);
+            drawPoints(img, points);
             imshow("test", img);
             waitKey(0);
         }
